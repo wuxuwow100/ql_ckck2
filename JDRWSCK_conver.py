@@ -4,10 +4,9 @@ from re import findall
 from os.path import exists
 import json
 import os
-import sys,re
-
+import sys
 packages.urllib3.disable_warnings()
-from urllib.parse import unquote
+
 """
 cron 57 21,9 * * *	
 """
@@ -97,8 +96,10 @@ def getcookie(key):
     headers = {
       'Content-Type': 'application/json'
     }
+
+    response = requests.request("POST", url, headers=headers, data=payload).json()
+    
     try:
-        response = requests.request("POST", url, headers=headers, data=payload).json()
         if response["success"]:
             cookie = response['data']['appck']       
             return cookie
@@ -107,6 +108,7 @@ def getcookie(key):
     except:
         printf("Error:"+str(response))
         return "Error"
+
 
 def subcookie(pt_pin, cookie, token ,envtype):
     if envtype=="v4":
@@ -164,7 +166,7 @@ def subcookie(pt_pin, cookie, token ,envtype):
                 post(url, json=body, headers=headers)
                 printf(f"新增cookie成功！pt_pin：{pt_pin}")
 def main():
-    printf("版本: 20230423")
+    printf("版本: 20230221")
     printf("说明1: 经测试转换后CK有效期是24小时，建议一天执行2次")
     printf("说明2: 扫码后的wskey不能用以前的WSKEY转换脚本转换")
     printf("说明3: 如果用Wxpusher通知需配置WP_APP_TOKEN_ONE和WP_APP_MAIN_UID，其中WP_APP_MAIN_UID是你的Wxpusher UID")
@@ -194,16 +196,13 @@ def main():
         
     if os.environ.get("RabbitToken")=="":
         printf('没有配置RabbitToken变量，例子: export RabbitToken="xxxxxxxxxxxxxxxx"')
-        return
-        
-    try:
-        if os.environ.get("WP_APP_TOKEN_ONE")=="" or os.environ.get("WP_APP_MAIN_UID")=="":
-            printf('没有配置Wxpusher相关变量,将调用sendNotify.py发送通知')
-        else:
-            printf('检测到已配置Wxpusher相关变量,将使用Wxpusher发送通知')
-            iswxpusher=True
-    except:
-        iswxpusher=False
+        return    
+    
+    if os.environ.get("WP_APP_TOKEN_ONE")=="" or os.environ.get("WP_APP_MAIN_UID")=="":
+        printf('没有配置Wxpusher相关变量,将调用sendNotify.py发送通知')
+    else:
+        printf('检测到已配置Wxpusher相关变量,将使用Wxpusher发送通知')
+        iswxpusher=True
 
     printf("\n===============开始转换==============")
     resurt=""
@@ -220,10 +219,7 @@ def main():
     }
     datas = get(url, params=body, headers=headers).json()['data']
     for data in datas:
-        key = data['value']        
-        if re.search('%', key):
-            key = unquote(key, 'utf-8')
-            
+        key = data['value']
         pin = key.split(";")[0].split("=")[1]
         for num in range(0,5):
             cookie = getcookie(key)
@@ -233,10 +229,9 @@ def main():
                 printf(f"pin为{pin}的wskey转换失败，重试....")        
         
         if "app_open" in cookie:
-            #printf("转换成功:"cookie)
-            orgpin = cookie.split(";")[1].split("=")[1]
-            subcookie(orgpin, cookie, token, envtype)
-            resurt1=resurt1+f"pt_pin更新成功：{orgpin}\n"
+            #printf("转换成功:"cookie)            
+            subcookie(pin, cookie, token, envtype)
+            resurt1=resurt1+f"pt_pin更新成功：{pin}\n"
         else:            
             message = f"pin为{pin}的wskey可能过期了！"
             printf(message)
